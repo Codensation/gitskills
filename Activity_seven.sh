@@ -429,12 +429,12 @@ from (
         when c.gap_m<=0 then 1
         when c.gap_m>=7 then 7		
          else c.gap_m end as gap_m
-    from( select b.userid as usr_id
+    from( select b.id as usr_id
            ,ceil(datediff('$PROC_DATE',to_date(b.date_tm))/30) as gap_m 
-    from (select userid,to_date(clickdate) as date_tm
+    from (select id,to_date(clickdate) as date_tm
        from dwd_data.dwd_zx_log_tj_click
        where part_dt='$PROC_DATE'
-       group by userid,to_date(clickdate))as b)
+       group by id,to_date(clickdate))as b)
         as c) as a
 group by a.usr_id
 ;
