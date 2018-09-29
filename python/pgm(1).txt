@@ -1,0 +1,549 @@
+
+//在线画像
+//投资时段偏好
+select t.inv_hour,count(*) as cnt 
+from (select inv_ppl_id,brw_id,inv_tm,hour(inv_tm) as inv_hour 
+    from dwd_data.DWD_EVT_ZX_INV_RCD where part_dt='2018-06-27') t 
+group by t.inv_hour
+order by t.inv_hour;
+
+//投资件均偏好
+select min(t.actl_inv_amt_avg) as min,max(t.actl_inv_amt_avg) as max
+from (select inv_ppl_id,avg(actl_inv_amt) as actl_inv_amt_avg 
+    from dwd_data.DWD_EVT_ZX_INV_RCD
+    where part_dt='2018-06-27'
+    group by inv_ppl_id) t 
+;
+
+select count(*) as cnt
+from (select inv_ppl_id,int(avg(actl_inv_amt)) as actl_inv_amt_avg 
+    from dwd_data.DWD_EVT_ZX_INV_RCD
+    where part_dt='2018-06-27'
+    group by inv_ppl_id) t
+where t.actl_inv_amt_avg>100000
+;
+
+select t.*
+from (select inv_ppl_id,int(avg(actl_inv_amt)) as actl_inv_amt_avg 
+    from dwd_data.DWD_EVT_ZX_INV_RCD
+    where part_dt='2018-06-27'
+    group by inv_ppl_id) t
+limit 30
+;
+
+select f.invest_level,count(*) as cnt from (
+select case 
+    when t.actl_inv_amt_avg<=1000 then '小散投资'
+    when t.actl_inv_amt_avg>1000 and t.actl_inv_amt_avg<=12000 then '中量级投资'
+    when t.actl_inv_amt_avg>12000 then '重量级投资'
+    else '' end as invest_level
+from (select inv_ppl_id,int(avg(actl_inv_amt)) as actl_inv_amt_avg 
+    from dwd_data.DWD_EVT_ZX_INV_RCD
+    where part_dt='2018-06-27'
+    group by inv_ppl_id) t
+) f
+group by f.invest_level
+;
+
+//投资周期偏好
+select prod_typ_cd,count(*) as cnt
+from dwd_data.DWD_EVT_ZX_INV_RCD
+where part_dt='2018-06-27'
+group by prod_typ_cd
+;
+
+//投资渠道偏好
+select t.plat,count(*) as cnt from (
+  select 
+    case 
+      when src_plf_cd=1 then 'PC端'
+      when src_plf_cd=2 or src_plf_cd=3 then 'APP端'
+      when src_plf_cd=4 then '微信端'
+    else '其它' end as plat 
+  from dwd_data.DWD_EVT_ZX_INV_RCD
+  where part_dt='2018-06-27') t
+group by t.plat
+;
+
+//终端特点
+select t.phone_type,count(*) as cnt from (
+  select 
+    case 
+      when instr(upper(chnl_cd),'APPSTORE')>0 then '果粉'
+      when instr(upper(chnl_cd),'MI')>0 then '米粉'
+      when instr(upper(chnl_cd),'HUAWEI')>0 then '华粉'
+      when instr(upper(chnl_cd),'MEIZU')>0 then '魅友'
+      when instr(upper(chnl_cd),'OPPO')>0 then 'OPPO粉'
+      when instr(upper(chnl_cd),'VIVO')>0 then 'VIVO粉'
+    else '其它' end as phone_type
+  from dwd_data.DWD_BHV_ZX_USR_MVMT_LGN_RCD 
+  where part_dt='2018-06-27') t
+group by t.phone_type
+;
+
+
+//会员等级
+select grd_nm,count(*) as cnt 
+from dwd_data.DWD_CUT_ZX_USR_MBR_GRD_INF 
+where part_dt='2018-06-27' 
+group by grd_nm;
+
+//活跃度
+//登录
+select a.usr_id
+    ,case when a.gap_m<=1 then 1 else 0 end as M1_login_flag
+    ,case when a.gap_m=2 then 1 else 0 end as M2_login_flag
+    ,case when a.gap_m=3 then 1 else 0 end as M3_login_flag
+    ,case when a.gap_m=4 then 1 else 0 end as M4_login_flag
+    ,case when a.gap_m=5 then 1 else 0 end as M5_login_flag
+    ,case when a.gap_m=6 then 1 else 0 end as M6_login_flag
+    ,case when a.gap_m>=7 then 1 else 0 end as M7_login_flag
+from (
+    select usr_id
+        ,ceil(datediff('2018-07-11',to_date(late_lgn_tm))/30) as gap_m 
+    from dwd_data.DWD_BHV_ZX_USR_MVMT_LGN_RCD 
+    where part_dt='2018-07-10' ) as a 
+limit 30
+;
+
+//签到
+select c.usr_id
+    ,sum(case when c.gap_m=1 then 1 else 0 end) as M1_sgn_pnt_cnt
+    ,sum(case when c.gap_m=2 then 1 else 0 end) as M2_sgn_pnt_cnt
+    ,sum(case when c.gap_m=3 then 1 else 0 end) as M3_sgn_pnt_cnt
+    ,sum(case when c.gap_m=4 then 1 else 0 end) as M4_sgn_pnt_cnt
+    ,sum(case when c.gap_m=5 then 1 else 0 end) as M5_sgn_pnt_cnt
+    ,sum(case when c.gap_m=6 then 1 else 0 end) as M6_sgn_pnt_cnt
+    ,sum(case when c.gap_m=7 then 1 else 0 end) as M7_sgn_pnt_cnt
+from (
+    select a.usr_id
+        ,case 
+            when a.gap_m<=0 then 1
+            when a.gap_m>=7 then 7		
+            else a.gap_m end as gap_m
+    from (
+        select usr_id
+            ,ceil(datediff('2018-07-11',to_date(crt_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_SGN_PNT_RCD 
+        where part_dt='2018-07-10' ) as a ) as c
+group by c.usr_id
+limit 30
+;
+
+//
+select dtrb_usr_id,dtrb_qty,sts_cd,dtrb_tm,src
+from dwd_data.DWD_EVT_ZX_RWD_DTRB_RCD 
+where part_dt='2018-07-15' 
+  and src in ('神券整点抢','抢券补发')
+  and sts_cd=1
+limit 30;
+
+
+select c.usr_id
+    ,sum(case when c.gap_m=1 then 1 else 0 end) as M1_rob_sta_cnt
+    ,sum(case when c.gap_m=2 then 1 else 0 end) as M2_rob_sta_cnt
+    ,sum(case when c.gap_m=3 then 1 else 0 end) as M3_rob_sta_cnt
+    ,sum(case when c.gap_m=4 then 1 else 0 end) as M4_rob_sta_cnt
+    ,sum(case when c.gap_m=5 then 1 else 0 end) as M5_rob_sta_cnt
+    ,sum(case when c.gap_m=6 then 1 else 0 end) as M6_rob_sta_cnt
+    ,sum(case when c.gap_m=7 then 1 else 0 end) as M7_rob_sta_cnt
+from (
+    select a.usr_id
+        ,case 
+            when a.gap_m<=0 then 1
+            when a.gap_m>=7 then 7		
+            else a.gap_m end as gap_m
+    from (
+        select dtrb_usr_id as usr_id
+            ,ceil(datediff('2018-07-15',to_date(dtrb_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_RWD_DTRB_RCD 
+        where part_dt='2018-07-15' 
+            and src in ('神券整点抢','抢券补发') 
+            and sts_cd=1) as a ) as c
+group by c.usr_id
+limit 30
+;
+
+
+
+
+
+
+
+//积分抽奖
+select usr_id,opr_typ_cd,opr_cntnt,opr_tm 
+from dwd_data.DWD_EVT_ZX_LKY_DRW_RCD 
+where part_dt='2018-07-12' 
+    and opr_typ_cd=2 
+    and opr_cntnt like '%积分%' 
+limit 30;
+
+
+//积分兑换
+select c.usr_id
+    ,sum(case when c.gap_m=1 then 1 else 0 end) as M1_pnt_exg_cnt
+    ,sum(case when c.gap_m=2 then 1 else 0 end) as M2_pnt_exg_cnt
+    ,sum(case when c.gap_m=3 then 1 else 0 end) as M3_pnt_exg_cnt
+    ,sum(case when c.gap_m=4 then 1 else 0 end) as M4_pnt_exg_cnt
+    ,sum(case when c.gap_m=5 then 1 else 0 end) as M5_pnt_exg_cnt
+    ,sum(case when c.gap_m=6 then 1 else 0 end) as M6_pnt_exg_cnt
+    ,sum(case when c.gap_m=7 then 1 else 0 end) as M7_pnt_exg_cnt
+from (
+    select a.usr_id
+        ,case 
+            when a.gap_m<=0 then 1
+            when a.gap_m>=7 then 7		
+            else a.gap_m end as gap_m
+    from (
+        select usr_id
+            ,ceil(datediff('2018-07-11',to_date(crt_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_PNT_EXG_RCD 
+        where part_dt='2018-07-10' ) as a ) as c
+group by c.usr_id
+limit 30
+;
+
+//用户投资活跃度
+select c.usr_id
+    ,sum(case when c.gap_m=1 then 1 else 0 end) as M1_inv_cnt
+    ,sum(case when c.gap_m=2 then 1 else 0 end) as M2_inv_cnt
+    ,sum(case when c.gap_m=3 then 1 else 0 end) as M3_inv_cnt
+    ,sum(case when c.gap_m=4 then 1 else 0 end) as M4_inv_cnt
+    ,sum(case when c.gap_m=5 then 1 else 0 end) as M5_inv_cnt
+    ,sum(case when c.gap_m=6 then 1 else 0 end) as M6_inv_cnt
+    ,sum(case when c.gap_m=7 then 1 else 0 end) as M7_inv_cnt
+from (
+    select a.usr_id
+        ,case 
+            when a.gap_m<=0 then 1
+            when a.gap_m>=7 then 7		
+            else a.gap_m end as gap_m
+    from (
+        select inv_ppl_id as usr_id
+            ,ceil(datediff('2018-07-15',to_date(inv_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD
+        where part_dt='2018-07-15' ) as a ) as c
+group by c.usr_id
+limit 30
+;
+
+
+
+
+
+
+select c.usr_id
+    ,sum(case when c.gap_m=1 then 1 else 0 end) as M1_inv_cnt
+    ,sum(case when c.gap_m=2 then 1 else 0 end) as M2_inv_cnt
+    ,sum(case when c.gap_m=3 then 1 else 0 end) as M3_inv_cnt
+    ,sum(case when c.gap_m=4 then 1 else 0 end) as M4_inv_cnt
+    ,sum(case when c.gap_m=5 then 1 else 0 end) as M5_inv_cnt
+    ,sum(case when c.gap_m=6 then 1 else 0 end) as M6_inv_cnt
+    ,sum(case when c.gap_m=7 then 1 else 0 end) as M7_inv_cnt
+    , '$PROC_DATE'
+from (
+    select a.usr_id
+        ,case 
+            when a.gap_m<=0 then 1
+            when a.gap_m>=7 then 7		
+            else a.gap_m end as gap_m
+	select f.gap_m,count(*) as cnt
+    from (
+        select t1.inv_ppl_id as usr_id
+            ,t2.reg_tm
+            ,t1.inv_tm
+            ,ceil(datediff(to_date(t1.inv_tm),to_date(t2.reg_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD as t1
+        left join dwd_data.DWD_CUT_ZX_USR_BAS_INF as t2
+        on t1.inv_ppl_id=t2.usr_id and t2.part_dt='2018-07-16'
+        where t1.part_dt='2018-07-16' ) as a
+    group by f.gap_m
+    order by f.gap_m;
+
+
+    where a.gap_m=0
+    limit 30;
+    group by a.gap_m
+    order by a.gap_m;
+    ) as c
+group by c.usr_id
+;
+
+	select f.gap_m,count(*) as cnt
+    from (
+        select t1.inv_ppl_id as usr_id
+            ,t2.reg_tm
+            ,t1.inv_tm
+            ,ceil(datediff(to_date(t1.inv_tm),to_date(t2.reg_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD as t1
+        left join dwd_data.DWD_CUT_ZX_USR_BAS_INF as t2
+        on t1.inv_ppl_id=t2.usr_id and t2.part_dt='2018-07-16'
+        where t1.part_dt='2018-07-16' ) as a
+    group by f.gap_m
+    order by f.gap_m;
+
+	select f.gap_m_min,count(*) as cnt
+    from (
+    select a.usr_id,min(gap_m) as gap_m_min
+    from (
+        select t1.inv_ppl_id as usr_id
+            ,t2.reg_tm
+            ,t1.inv_tm
+            ,ceil(datediff(to_date(t1.inv_tm),to_date(t2.reg_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD as t1
+        left join dwd_data.DWD_CUT_ZX_USR_BAS_INF as t2
+        on t1.inv_ppl_id=t2.usr_id and t2.part_dt='2018-07-16'
+        where t1.part_dt='2018-07-16' ) as a
+    group by a.usr_id ) f
+    group by f.gap_m_min
+    order by f.gap_m_min;
+
+	select f.gap_m_max,count(*) as cnt
+    from (
+    select a.usr_id,max(gap_m) as gap_m_max
+    from (
+        select t1.inv_ppl_id as usr_id
+            ,t2.reg_tm
+            ,t1.inv_tm
+            ,ceil(datediff(to_date(t1.inv_tm),to_date(t2.reg_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD as t1
+        left join dwd_data.DWD_CUT_ZX_USR_BAS_INF as t2
+        on t1.inv_ppl_id=t2.usr_id and t2.part_dt='2018-07-16'
+        where t1.part_dt='2018-07-16' ) as a
+    group by a.usr_id ) f
+    group by f.gap_m_max
+    order by f.gap_m_max;
+
+    select f.inv_cnt,count(*) as cnt
+    from (
+    select a.usr_id,a.gap_m,count(*) as inv_cnt
+    from (
+        select t1.inv_ppl_id as usr_id
+            ,t2.reg_tm
+            ,t1.inv_tm
+            ,ceil(datediff(to_date(t1.inv_tm),to_date(t2.reg_tm))/30) as gap_m 
+        from dwd_data.DWD_EVT_ZX_INV_RCD as t1
+        left join dwd_data.DWD_CUT_ZX_USR_BAS_INF as t2
+        on t1.inv_ppl_id=t2.usr_id and t2.part_dt='2018-07-16'
+        where t1.part_dt='2018-07-16' ) as a
+    group by a.usr_id,a.gap_m ) f
+    group by f.inv_cnt
+    order by f.inv_cnt;
+
+
+
+
+//投资周期偏好
+select t.inv_type
+  ,count(*) as cnt 
+from (
+  select 
+    case 
+      when trm<=2 then '月月投偏好'
+      when trm>=3 and trm<6 then '3月标短期偏好'
+      when trm>=6 and trm<12 then '6月标中期偏好'
+      when trm>=12 and trm<24 then '12月标长期偏好'
+      when trm>=24 then '24月标超长期偏好'
+    else '' end as inv_type
+  from dwd_data.DWD_EVT_ZX_INV_RCD 
+  where part_dt='2018-07-01'
+) t
+group by t.inv_type
+;
+
+select trm from dwd_data.DWD_EVT_ZX_INV_RCD where part_dt='2018-07-01' group by trm;
+
+
+//
+create table if not exists datamining_temp.zx_cust_inv_info
+(             
+  usr_id           string              comment   '客户ID',
+  mbl_nbr          string              comment   '客户电话',
+  doc_nbr          string              comment   '客户身份证',
+  payamt_flag      string              comment   '是否有待收',
+  payamt           decimal(18,2)       comment   '待收金额',
+  inv_flag         string              comment   '是否投资',
+  inv_cnt          int                 comment   '投资次数'
+)partitioned by(part_dt string)
+row format delimited fields terminated by '\u0001';
+
+set mapred.job.queue.name=datamining;
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=100000;
+SET mapreduce.job.queuename=root.datamining;
+SET hive.map.aggr = false;
+
+insert overwrite table datamining_temp.zx_cust_inv_info partition(part_dt)
+select a.usr_id
+    ,a.mbl_nbr
+    ,a.doc_nbr
+    ,case when b.payamt>0 then '1' else '0' end as payamt_flag
+    ,b.payamt
+    ,case when c.inv_cnt>0 then '1' else '0' end as inv_flag
+    ,c.inv_cnt
+    , '2018-07-04'
+from dwd_data.DWD_CUT_ZX_USR_BAS_INF as a
+left join dwd_data.dwd_cut_zx_cust_pay_dtl as b
+on a.usr_id=b.userid and b.payamt>0 and b.part_dt='2018-07-04'
+left join ( select inv_ppl_id,count(*) as inv_cnt from dwd_data.DWD_EVT_ZX_INV_RCD where part_dt='2018-07-04' group by inv_ppl_id) as c
+on a.usr_id=c.inv_ppl_id
+where a.part_dt='2018-07-04' 
+;
+
+
+
+//客户价值属性
+
+
+//在线用户画像
+
+select inv_ppl_id as user_id
+    ,case
+        when hour(inv_tm)>=1 and hour(inv_tm)<=5 then '1-5点投资时段'
+        when hour(inv_tm)>=6 and hour(inv_tm)<=8 then '6-8点投资时段'
+        when hour(inv_tm)>=9 and hour(inv_tm)<=12 then '9-12点投资时段'
+        when hour(inv_tm)>=13 and hour(inv_tm)<=17 then '13-17点投资时段'
+        when hour(inv_tm)>=18 and hour(inv_tm)<=22 then '18-22点投资时段'
+        when hour(inv_tm)>=23 and hour(inv_tm)<=24 then '23-24点投资时段'
+        else '' end as inv_tm_qt                           --投资时间段
+    ,datediff('2018-07-06',to_date(inv_tm)) as inv_tm_gap  --投资时间间隔(现在)
+    ,actl_inv_amt                                          --实际投资金额
+    ,trm                                                   --期数
+    ,case 
+      when src_plf_cd=1 then 'PC端'
+      when src_plf_cd=2 or src_plf_cd=3 then 'APP端'
+      when src_plf_cd=4 then '微信端'
+    else '其它' end as plat                                --投资渠道
+from dwd_data.DWD_EVT_ZX_INV_RCD
+where part_dt='2018-07-05'
+limit 10;
+
+
+
+select usr_id
+    ,datediff('2018-07-05',to_date(late_lgn_tm)) as late_lgn_gap
+    ,usr_lgn_tms
+    ,case 
+      when instr(upper(chnl_cd),'APPSTORE')>0 then '果粉'
+      when instr(upper(chnl_cd),'MI')>0 then '米粉'
+      when instr(upper(chnl_cd),'HUAWEI')>0 then '华粉'
+      when instr(upper(chnl_cd),'MEIZU')>0 then '魅友'
+      when instr(upper(chnl_cd),'OPPO')>0 then 'OPPO粉'
+      when instr(upper(chnl_cd),'VIVO')>0 then 'VIVO粉'
+    else '其它' end as phone_type
+from dwd_data.DWD_BHV_ZX_USR_MVMT_LGN_RCD 
+where part_dt='2018-07-05'
+limit 10
+;
+
+select usr_id,grd_nm 
+from dwd_data.DWD_CUT_ZX_USR_MBR_GRD_INF 
+where part_dt='2018-07-05'
+limit 10
+;
+
+select userid
+    ,payamt
+from dwd_data.dwd_cut_zx_cust_pay_dtl
+where part_dt='2018-07-05'
+limit 10
+;
+
+
+select c.rct_1y_inv_flag,c.grd_nm,count(*) as cnt
+from (
+    select a.user_id,a.grd_nm,b.rct_1y_inv_flag
+    from data_mining.dwd_cut_zx_usr_mbr_grd_inf as a
+    left join (select distinct user_id,rct_1y_inv_flag  from data_mining.dwd_evt_zx_inv_rcd where part_dt='2018-07-08') as b
+    on a.user_id=b.user_id
+    where a.part_dt='2018-07-08') c
+group by c.rct_1y_inv_flag,c.grd_nm;
+
+select t.cnt,count(*) as cnt1 from (
+select user_id,count(distinct inv_tm_qt) as cnt
+from data_mining.dwd_evt_zx_inv_rcd
+where part_dt='2018-07-08' 
+    and rct_1y_inv_flag='1'
+    and inv_tm_gap<=365
+group by user_id) t
+group by t.cnt
+order by t.cnt
+;
+
+#---------------------------------------------------------------------
+#运营工具
+#---------------------------------------------------------------------
+
+//红包
+select red_sts_cd,use_sts_cd,count(*) as cnt 
+from dwd_data.DWD_EVT_ZX_RED_DTRB_RCD 
+where part_dt='2018-07-22'
+    and usr_id is not null 
+group by red_sts_cd,use_sts_cd;
+
+select a.use_tm_is_unnull,a.red_sts_cd,a.use_sts_cd,count(*) as cnt 
+from (select usr_id,red_sts_cd,use_sts_cd
+        ,case when use_tm!='' and use_tm is not null then '1' else '0' end as use_tm_is_unnull
+      from dwd_data.DWD_EVT_ZX_RED_DTRB_RCD 
+      where part_dt='2018-07-22'
+         and usr_id is not null) as a 
+group by a.use_tm_is_unnull,a.red_sts_cd,a.use_sts_cd
+order by a.use_tm_is_unnull,a.red_sts_cd,a.use_sts_cd;
+
+//增利券
+select inc_int_cpn_sts_cd,count(*) as cnt 
+from dwd_data.DWD_EVT_ZX_USR_INC_INT_CPN_REL 
+where part_dt='2018-07-22' 
+group by inc_int_cpn_sts_cd
+order by inc_int_cpn_sts_cd;
+
+select a.use_tm_is_unnull,a.inc_int_cpn_sts_cd,count(*) as cnt 
+from (select usr_id,inc_int_cpn_sts_cd
+        ,case when use_tm!='' and use_tm is not null then '1' else '0' end as use_tm_is_unnull
+      from dwd_data.DWD_EVT_ZX_USR_INC_INT_CPN_REL 
+      where part_dt='2018-07-22'
+         and usr_id is not null) as a 
+group by a.use_tm_is_unnull,a.inc_int_cpn_sts_cd
+order by a.use_tm_is_unnull,a.inc_int_cpn_sts_cd;
+
+//理财金券详细记录
+select sts_cd,count(*) as cnt 
+from dwd_data.DWD_EVT_ZX_FIN_MNG_CPN_EXG_RCD 
+where part_dt='2018-07-22'
+    and usr_id is not null
+group by sts_cd;
+
+
+select a.use_tm_is_unnull,a.sts_cd,count(*) as cnt 
+from (select usr_id,sts_cd
+        ,case when exg_tm!='' and exg_tm is not null then '1' else '0' end as use_tm_is_unnull
+      from dwd_data.DWD_EVT_ZX_FIN_MNG_CPN_EXG_RCD 
+      where part_dt='2018-07-22'
+         and usr_id is not null) as a 
+group by a.use_tm_is_unnull,a.sts_cd
+order by a.use_tm_is_unnull,a.sts_cd;
+
+
+
+
+
+
+select t2.score_grp,count(*) as cnt 
+from (
+select int(t1.inv_score*100) as score_grp
+from (
+    select case 
+        when inv_score=0 then 0
+        when inv_score>1 then 1
+        else inv_score
+      end as inv_score
+    from data_mining.t_zx_inv_cnt_info 
+    where part_dt='2018-07-18') as t1 ) as t2
+group by t2.score_grp 
+order by t2.score_grp;
+
+
+
+
