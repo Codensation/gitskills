@@ -1,0 +1,33 @@
+install.packages("RJDBC")
+library(RJDBC)
+#library(readr)
+#library(igraph)
+options(stringsAsFactors = F)
+options( java.parameters = '-Xmx16g')
+#source('graph_function.R',encoding = 'UTF-8')
+if (Sys.info()['sysname']=="Windows"){
+  hive_home="D:/Program/jar/"
+  hadoop_home="D:/Program/jar/"
+} else {
+  hive_home='/appcom/service/hive/lib/'
+  hadoop_home='/appcom/service/hadoop/share/hadoop/common/'
+}
+cp = c( paste0(hadoop_home,"hadoop-common-2.6.0-cdh5.7.0.jar"),
+        paste0(hive_home,"hive-jdbc-1.1.0-cdh5.7.0.jar"),
+        paste0(hive_home,"libthrift-0.9.2.jar"),
+        paste0(hive_home,"hive-service-1.1.0-cdh5.7.0.jar"),
+        paste0(hive_home,"httpclient-4.2.5.jar"),
+        paste0(hive_home, "httpcore-4.2.5.jar"),
+        paste0(hive_home,"hive-jdbc-1.1.0-cdh5.7.0-standalone.jar"))
+
+.jinit(classpath = cp)
+drv <-JDBC("org.apache.hive.jdbc.HiveDriver", paste0(hive_home,"hive-jdbc-1.1.0-cdh5.7.0-standalone.jar"))
+conn <-dbConnect(drv,"jdbc:hive2://10.8.34.2:10000/datamining_temp","shiyulong","Xn!156517")
+dbSendUpdate(conn, "SET mapreduce.job.queuename=root.datamining")
+dbSendUpdate(conn,"SET hive.exec.dynamic.partition=true")
+dbSendUpdate(conn,"SET hive.exec.dynamic.partition.mode=nonstrict")
+dbSendUpdate(conn,"SET hive.exec.max.dynamic.partitions=100000")
+dbSendUpdate(conn,"SET hive.exec.max.dynamic.partitions.pernode=100000")
+dbSendUpdate(conn,"SET hive.map.aggr = false")
+dbSendUpdate(conn,"SET hive.exec.parallel=true")
+dbSendUpdate(conn,"SET hive.exec.parallel.thread.number=16")

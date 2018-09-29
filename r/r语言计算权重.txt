@@ -1,0 +1,123 @@
+w<-c(27.72,24.57,23.17,9.33,4.96,10.25)/100;s=c(10,6,6,4,2,1);
+SQL='select * from data_mining.t_zx_robsta_info where part_dt=\'2018-07-31\'';
+rob=dbGetQuery(conn,SQL);
+SQL='select * from data_mining.t_zx_poirew_info where part_dt=\'2018-07-31\'';
+rew=dbGetQuery(conn,SQL);
+SQL='select * from data_mining.t_zx_pnt_exg_info where part_dt=\'2018-07-31\'';
+exg=dbGetQuery(conn,SQL);
+SQL='select * from data_mining.t_zx_versus_info where part_dt=\'2018-07-31\'';
+sus=dbGetQuery(conn,SQL);
+SQL='select * from data_mining.t_zx_sign_info where part_dt=\'2018-07-31\'';
+sig=dbGetQuery(conn,SQL);
+SQL='select * from data_mining.t_zx_login_info where part_dt=\'2018-07-31\'';
+log=dbGetQuery(conn,SQL);
+UID=union(union(union(union(union(rob[,1],rew[,1]),exg[,1]),sus[,1]),sig[,1]),log[,1]);
+write.csv(rob,'rob.csv')
+write.csv(rew,'rew.csv')
+write.csv(exg,'exg.csv')
+write.csv(sus,'sus.csv')
+write.csv(sig,'sig.csv')
+write.csv(log,'log.csv')
+rob6=as.matrix(rob[,2:7]);rew6=as.matrix(rew[,2:7]);exg6=as.matrix(exg[,2:7]);
+sus6=as.matrix(sus[,2:7]);sig6=as.matrix(sig[,2:7]);log6=as.matrix(log[,2:7]);
+id=rob[,1];rob_w=rob6%*%w;W1=data.frame(id,rob_w);
+id=rew[,1];rew_w=rew6%*%w;W2=data.frame(id,rew_w);
+id=exg[,1];exg_w=exg6%*%w;W3=data.frame(id,exg_w);
+id=sus[,1];sus_w=sus6%*%w;W4=data.frame(id,sus_w);
+id=sig[,1];sig_w=sig6%*%w;W5=data.frame(id,sig_w);
+id=log[,1];log_w=log6%*%w;W6=data.frame(id,log_w);
+ACTION_W=merge(merge(merge(merge(merge(W1,W2,by='id',all=T),W3,by='id',all=T),W4,by='id',all=T),W5,by='id',all=T),W6,by='id',all=T);
+ACTION_W[is.na(ACTION_W)]<-0;
+write.csv(ACTION_W,'ACTION_W.csv')
+
+SCORE<- as.matrix(ACTION_W[,2:7])%*%s;
+score_data=data.frame(ACTION_W$id,SCORE);
+write.csv(score_data,'score_data.csv')
+finenum(score_data[,2])
+summary(score_data[,2])
+#install.packages("psych")
+#library(psych)
+describeBy(score_data)
+a=sort(score_data[,2],decreasing=TRUE);
+b=which(a==0)[1];
+c=a[1:(b-1)];describeBy(c)
+write.csv(c,'c.csv')
+quantile(c,probs=seq(0,1,0.1))
+################################################################2018/08/06
+quantile(c,probs=seq(0,1,0.1))
+c=read.csv('c.csv',col.names=c('oder','score'))
+c=c[,2];
+
+###################聚类##################################################
+km=kmeans(c,centers=3)
+km$centers
+km$size
+km$betweenss/km$totss
+clust1=c[km$cluster==1]
+clust2=c[km$cluster==2]
+clust3=c[km$cluster==3]
+summary(clust1);summary(clust2);summary(clust3)
+mcm=Mclust(as.matrix(c),G=2:10)  #要导入mclust包
+summary(mcm)
+#########################################################################
+#quantile(c,probs=seq(0,1,0.1))
+c1=length(c(which(c>=0 & c<=100)));
+c2=length(c(which(c>100 & c<=200)));
+c3=length(c(which(c>200 & c<=300)));
+c4=length(c(which(c>300 & c<=400)));
+c5=length(c(which(c>400 & c<=500)));
+c6=length(c(which(c>500 & c<=570)));
+c11=length(c(which(c>=0 & c<=10)));
+c12=length(c(which(c>10 & c<=20)))
+c13=length(c(which(c>20 & c<=30)))
+c14=length(c(which(c>30 & c<=40)))
+c15=length(c(which(c>40 & c<=50)))
+c16=length(c(which(c>50 & c<=60)))
+c17=length(c(which(c>60 & c<=70)))
+c18=length(c(which(c>70 & c<=80)))
+c19=length(c(which(c>80 & c<=90)))
+c110=length(c(which(c>90 & c<=100)))
+
+rob_last=c();
+for (i in 1:length(rob[,1])){
+rob_last[i]=which(rob[i,c(2:7)]!=0)[1]
+}
+id=rob[,1];W1=data.frame(id,rob_last)
+rew_last=c();
+for (i in 1:length(rew[,1])){
+rew_last[i]=which(rew[i,c(2:7)]!=0)[1]
+}
+id=rew[,1];W2=data.frame(id,rew_last)
+exg_last=c();
+for (i in 1:length(exg[,1])){
+exg_last[i]=which(exg[i,c(2:7)]!=0)[1]
+}
+id=exg[,1];W3=data.frame(id,exg_last)
+sus_last=c();
+for (i in 1:length(sus[,1])){
+sus_last[i]=which(sus[i,c(2:7)]!=0)[1]
+}
+id=sus[,1];W4=data.frame(id,sus_last)
+sig_last=c();
+for (i in 1:length(sig[,1])){
+sig_last[i]=which(sig[i,c(2:7)]!=0)[1]
+}
+id=sig[,1];W5=data.frame(id,sig_last)
+log_last=c();
+for (i in 1:length(log[,1])){
+log_last[i]=which(log[i,c(2:7)]!=0)[1]
+}
+id=log[,1];W6=data.frame(id,log_last)
+ACTION_last=merge(merge(merge(merge(merge(W1,W2,by='id',all=T),W3,by='id',all=T),W4,by='id',all=T),W5,by='id',all=T),W6,by='id',all=T);
+ACTION_last[is.na(ACTION_last)]<-0;
+write.csv(ACTION_last,'ACTION_last.csv')
+c=c();
+for (i in 1:length(ACTION_last[,1])){
+temp<-which(ACTION_last[i,c(2:7)]!=0)[1];
+if (is.na(temp)) c[i]=0 else c[i]=ACTION_last[i,(1+temp)]
+}
+c_last=c
+write.csv(c_last,'c_last.csv')
+z=table(c)
+
+
